@@ -11,20 +11,23 @@ import Error from "../components/Error";
 
 export async function loader({ params }) {
   const cliente = await obtenerCliente(params.clienteId);
-  if (Object.values(cliente).length === 0) {
+
+  // Manejar errores
+  if (cliente.error) {
     throw new Response("", {
       status: 404,
       statusText: "No hay resultados",
     });
   }
 
-  return cliente;
+  return cliente.data;
 }
 
 export async function action({ request, params }) {
   const formData = await request.formData();
   const data = Object.fromEntries(formData);
   const email = formData.get("email");
+  const telefono = formData.get("phone");
 
   // Validación
   const errores = [];
@@ -34,22 +37,38 @@ export async function action({ request, params }) {
   }
 
   // Validación de Email
-  let regex = new RegExp(
+  const regexEmail = new RegExp(
     // eslint-disable-next-line no-control-regex
     "([!#-'*+/-9=?A-Z^-~-]+(.[!#-'*+/-9=?A-Z^-~-]+)*|\"([]!#-[^-~ \t]|(\\[\t -~]))+\")@([!#-'*+/-9=?A-Z^-~-]+(.[!#-'*+/-9=?A-Z^-~-]+)*|[[\t -Z^-~]*])"
   );
-  if (!regex.test(email)) {
+  if (!regexEmail.test(email)) {
     errores.push("El Email no es valido");
   }
 
-  //Retornar datos si hay errores
+  // Validación de Telefono
+  const regexTel = /^[0-9]{10}$/;
+
+  if (!regexTel.test(telefono)) {
+    errores.push(
+      "Ingrese un número de teléfono válido con exactamente 10 dígitos"
+    );
+  }
+
+  // Retornar datos si hay errores
   if (Object.keys(errores).length) {
     return errores;
   }
 
-  //Actualizar cliente
+  // Actualizar cliente
   const id = params.clienteId;
-  await actualizarCliente(id, data);
+  const result = await actualizarCliente(id, data);
+
+  // Retornar datos si hay error al actualizar
+  if (result.error) {
+    errores.push("Los datos son incorrectos");
+    return errores;
+  }
+
   return redirect("/");
 }
 
